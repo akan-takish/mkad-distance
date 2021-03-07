@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+*.pyc
+*.pyo
+# Compiled Python bytecode
+*.py[cod]
