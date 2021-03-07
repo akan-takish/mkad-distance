@@ -110,7 +110,7 @@ class Geocoder:
 
 			output = output + "{0:8.3f}".format(distance/1000) + ' km'
 			current_app.logger.info(output)
-			print('hello')
+			print('hello') #222
 
 		return output
 
