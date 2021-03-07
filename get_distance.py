@@ -10,26 +10,28 @@ from shapely.geometry import Polygon, Point, LinearRing
 import pyproj
 from typing import List
 
+
 Coordinate = List[float]
-
-
-
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-distance_bp = Blueprint('distance_bp', __name__)
 
+distance_bp = Blueprint('distance_bp', __name__)
 
 
 class Geocoder:
 	"""
 	Используется для нахождении дистанции с заданного адреса до МКАДа в км
-	входные данные: ключ разоаботчика Яндекс http геокодера и сам адрес
-	вывод: дистанция в км
+	входные данные: ключ разработчика Яндекс http геокодера(apikey), адрес(geocode), и параметр contains
+	вывод: дистанция в км (output)
 	"""
-	def __init__(self, apikey: str, geocode: str) -> None:
+		# contains: bool
+	# intercepts: bool
+	# State = List[]
+	def __init__(self, apikey: str, geocode: str, contains: bool) -> None:
 		self.apikey = apikey
 		self.geocode = geocode
+		self.contains = contains
 
 
 	def get_coords(self) -> Coordinate:
@@ -47,9 +49,9 @@ class Geocoder:
 		coords = [float(coords[0]), float(coords[1])]
 		return coords
 
-	def mkad_contains_address(self) -> bool:
+	def mkad_contains_intercepts_address(self) -> bool:
 		"""
-		Проверяет если адрес находится внутри МКАДа
+		Проверяет если адрес находится внутри или касается МКАДа
 		"""
 		coords = self.get_coords()
 		point = Point(coords)
@@ -57,13 +59,19 @@ class Geocoder:
 
 		return poly.contains(point)
 
+	def mkad_intercepts_address(self) -> bool:
+		"""
+		Проверят если адрес (точка) касается (вдоль) МКАДа
+		"""
+		coords = self.get_coords()
+
 
 	def closest_point_to_mkad(self) -> List[Coordinate]:
 		"""
-		Показывает ближайшую точку до МКАДа
+		Возвращает координату адреса и его ближайшую точку до МКАДа
 		"""
 		coords = self.get_coords()
-		point1 = Point(coords) # Создаём геометрический объект (точку) из полученных координат (yandex geocode)
+		point1 = Point(coords) # Создаём геометрический объект (точку) из полученных координат (yandex geocoder)
 		poly = Polygon(mkad_km) # Создаём геом. объект (полигон)
 		pol_ext = LinearRing(poly.exterior.coords)
 		d = pol_ext.project(point1)
@@ -85,17 +93,24 @@ class Geocoder:
 		"""
 		Возвращает дистанцию с адреса до ближайшей точки МКАДа
 		"""
+
 		output: str = 'Дистанция '
 		points = self.closest_point_to_mkad()
-
 		point1 = Point(points[0])
 		point2 = Point(points[1])
 
-		geod = pyproj.Geod(ellps='WGS84')
-		angle1, angle2, distance = geod.inv(point1.x, point1.y, point2.x, point2.y)
+		if self.contains == False:
+			point = Point(coords)
+			poly = Polygon(mkad_km)
+			if poly.contains(point):
+				output = 'Адрес находится внутри МКАДа. Введите другой адрес'
+		else:
+			geod = pyproj.Geod(ellps='WGS84')
+			angle1, angle2, distance = geod.inv(point1.x, point1.y, point2.x, point2.y)
 
-		output = output + "{0:8.3f}".format(distance/1000) + ' km'
-		current_app.logger.info(output)
+			output = output + "{0:8.3f}".format(distance/1000) + ' km'
+			current_app.logger.info(output)
+			print('hello')
 
 		return output
 
@@ -107,20 +122,17 @@ def index(geocode) -> str:
 	output: str = 'Адрес находится внутри МКАДа. Введите другой адрес'
 
 	apikey = config['geocode.api.key']['apikey']
-	contains = request.args.get('contains')
-	g = Geocoder(apikey, geocode)
+	contains = request.args.get('contains') # Если добавить параметр contains с аргументом false 
+	
 
 	if contains == 'false':
-		if g.mkad_contains_address():
-			current_app.logger.info(output)
-		else:
-			output = g.get_distance()
+		g = Geocoder(apikey, geocode, contains=False)
 	else:
-		output = g.get_distance()
-
-
-
+		g = Geocoder(apikey, geocode, contains=True)
 	
+	output = g.get_distance()
+
+
 	return output
 
 @distance_bp.route('/')

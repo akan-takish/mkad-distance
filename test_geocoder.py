@@ -30,3 +30,6 @@ def test_fake_address(client):
 	res = client.get('/address/-122')
 
 	assert res.status_code == 200
+
+def test_main_page(client):
+	res = client.get('/')
