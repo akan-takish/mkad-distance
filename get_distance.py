@@ -6,12 +6,14 @@ from flask import current_app
 import requests
 import configparser
 from mkad import mkad_km
-from shapely.geometry import Polygon, Point, LinearRing
+from shapely.geometry import Polygon, Point, LinearRing, LineString
 import pyproj
 from typing import List
 
 
 Coordinate = List[float]
+
+
 config = configparser.ConfigParser()
 config.read('config.ini')
 
@@ -22,16 +24,18 @@ distance_bp = Blueprint('distance_bp', __name__)
 class Geocoder:
 	"""
 	Используется для нахождении дистанции с заданного адреса до МКАДа в км
-	входные данные: ключ разработчика Яндекс http геокодера(apikey), адрес(geocode), и параметр contains
-	вывод: дистанция в км (output)
+	входные данные: 
+	1) 	ключ разработчика Яндекс http геокодера(apikey)
+	2) 	адрес(geocode), 
+	3)	параметр inner, если "false" то адреса внутри МКАДа не учитывает, 
+		если 'true' то находит дистанцию (default)
+	вывод:	дистанция в км (output)
 	"""
-		# contains: bool
-	# intercepts: bool
-	# State = List[]
-	def __init__(self, apikey: str, geocode: str, contains: bool) -> None:
+
+	def __init__(self, apikey: str, geocode: str, inner: bool) -> None:
 		self.apikey = apikey
 		self.geocode = geocode
-		self.contains = contains
+		self.inner = inner
 
 
 	def get_coords(self) -> Coordinate:
@@ -39,37 +43,19 @@ class Geocoder:
 		Возвращает координаты адреса [longitude, latitude]
 		'''
 		api = 'https://geocode-maps.yandex.ru/1.x/?format=json&apikey=' + self.apikey + '&geocode=' + self.geocode
-		try:
-			response =  requests.get(api).json()['response']
-		except KeyError:
-			response
-			current_app.logger.info('Неправильный Yandex apikey')
+		response =  requests.get(api).json()['response']
 		position = response['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos']
+		
 		coords = position.split(' ')
 		coords = [float(coords[0]), float(coords[1])]
 		return coords
-
-	def mkad_contains_intercepts_address(self) -> bool:
-		"""
-		Проверяет если адрес находится внутри или касается МКАДа
-		"""
-		coords = self.get_coords()
-		point = Point(coords)
-		poly = Polygon(mkad_km)
-
-		return poly.contains(point)
-
-	def mkad_intercepts_address(self) -> bool:
-		"""
-		Проверят если адрес (точка) касается (вдоль) МКАДа
-		"""
-		coords = self.get_coords()
 
 
 	def closest_point_to_mkad(self) -> List[Coordinate]:
 		"""
 		Возвращает координату адреса и его ближайшую точку до МКАДа
 		"""
+
 		coords = self.get_coords()
 		point1 = Point(coords) # Создаём геометрический объект (точку) из полученных координат (yandex geocoder)
 		poly = Polygon(mkad_km) # Создаём геом. объект (полигон)
@@ -77,6 +63,7 @@ class Geocoder:
 		d = pol_ext.project(point1)
 		p = pol_ext.interpolate(d)
 		closest = list(p.coords)[0]
+		print(closest)
 		kms = ''
 		for i, m in enumerate(mkad_km):
 			if m == list(closest):
@@ -94,23 +81,26 @@ class Geocoder:
 		Возвращает дистанцию с адреса до ближайшей точки МКАДа
 		"""
 
-		output: str = 'Дистанция '
+		output: str = 'Расстояния до МКАДа с ' + self.geocode + ' '
+
+
 		points = self.closest_point_to_mkad()
 		point1 = Point(points[0])
 		point2 = Point(points[1])
+		poly = Polygon(mkad_km)
+		line = LineString(mkad_km)
 
-		if self.contains == False:
-			point = Point(coords)
-			poly = Polygon(mkad_km)
-			if poly.contains(point):
-				output = 'Адрес находится внутри МКАДа. Введите другой адрес'
+
+		if self.inner == False and poly.contains(point1):
+			output = 'Адрес находится внутри МКАДа. Введите другой адрес'
+		elif line.contains(point1):
+			output = 'Адрес находится вдоль МКАДа'	
 		else:
 			geod = pyproj.Geod(ellps='WGS84')
 			angle1, angle2, distance = geod.inv(point1.x, point1.y, point2.x, point2.y)
-
 			output = output + "{0:8.3f}".format(distance/1000) + ' km'
 			current_app.logger.info(output)
-			print('hello') #222
+
 
 		return output
 
@@ -122,15 +112,21 @@ def index(geocode) -> str:
 	output: str = 'Адрес находится внутри МКАДа. Введите другой адрес'
 
 	apikey = config['geocode.api.key']['apikey']
-	contains = request.args.get('contains') # Если добавить параметр contains с аргументом false 
+	inner = request.args.get('inner') # Если добавить параметр inner с аргументом false 
 	
 
-	if contains == 'false':
-		g = Geocoder(apikey, geocode, contains=False)
+	if inner == 'false':
+		g = Geocoder(apikey, geocode, inner=False)
 	else:
-		g = Geocoder(apikey, geocode, contains=True)
+		g = Geocoder(apikey, geocode, inner=True)
 	
-	output = g.get_distance()
+	# out = g.get_distance()
+	try:
+		output = g.get_distance()
+	except IndexError:
+		output = 'Неправильный адрес, укажите адрес с городом'
+	except KeyError:
+		output = 'Неправильный ключ Яндекс API геокодера'
 
 
 	return output

@@ -4,3 +4,4 @@
 *.pyo
 # Compiled Python bytecode
 *.py[cod]
+*.ini
