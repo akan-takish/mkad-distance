@@ -108,24 +108,11 @@ mkad_km = [
 	[107,37.840965,55.793991],
 	[108,37.841576,55.785017]
 ]
-# mkad_km = []
-# import matplotlib.pyplot as plt
+
 for i,m in enumerate(mkad_km):
 	mkad_km[i] = [m[1], m[2]]
 
-# poly = Polygon(mkad_km)
-# point = Point(37.611446, 55.760955)
 
-
-# fig, ax = plt.subplots()
-# x,y = poly.exterior.xy
-# ax.plot(x,y)
-# x,y = point.xy
-# ax.scatter(x, y, marker="*", color='r', alpha=0.7, zorder=5, s=10)
-
-# plt.show()
-
-# 
 
 
 

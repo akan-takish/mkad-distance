@@ -1,4 +1,7 @@
+# encoding: utf-8
+
 import pytest
+
 from app import app
 
 
@@ -10,8 +13,8 @@ def client():
 
 
 def test_address(client):
-    res = client.get("/address/Москва, Тверская 6")
-    assert b"15.472" in res.data
+    rv = client.get("/address/Москва, Тверская 6")
+    assert b"15.472" == rv.data
 
 
 def test_main_page(client):
@@ -26,4 +29,4 @@ def test_wrong_address(client):
 
 def test_inner_false(client):
 	res = client.get('/address/Москва, Тверская 6?inner=false')
-	assert 'Адрес находится внутри МКАД. Введите другой адрес'.encode() == res.data
+	assert 'Адрес находится внутри МКАДа. Введите другой адрес'.encode() == res.data

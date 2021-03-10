@@ -11,4 +11,8 @@ logging.basicConfig(filename='distances.log', level=logging.INFO,
 
 app.register_blueprint(distance_bp, url_prefix='/address')
 
+@app.route('/')
+def home():
+   return "hello world!"
+
 
