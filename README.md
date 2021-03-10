@@ -29,7 +29,7 @@ https://yandex.ru/dev/maps/geocoder/doc/desc/concepts/about.html
 git clone repository
 
 ```sh
-https://github.com/akan-takish/mkad-distance.git
+git clone https://github.com/akan-takish/mkad-distance.git
 ```
 
 Установка библиотек для python
